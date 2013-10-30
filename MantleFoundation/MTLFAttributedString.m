@@ -7,6 +7,7 @@
 //
 
 #import "MTLFAttributedString.h"
+//#import "NSAttributedString+MantleFoundation.h"
 
 @implementation MTLFAttributedString
 
@@ -15,6 +16,8 @@
 			 @"attributedString": @"attributedString"
 			 };
 }
+
+
 
 //+ (NSValueTransformer *)stringJSONTransformer {
 //
@@ -31,35 +34,28 @@
 
 + (NSValueTransformer *)attributedStringJSONTransformer
 {
-//	NSMutableArray *attributedRanges = [NSMutableArray array];
-	
-//	[self.attributedString enumerateAttributesInRange:NSMakeRange(0, attributedString.length)
-//											  options:0
-//	   usingBlock:^(NSDictionary *attrs, NSRange range, BOOL *stop) {
-//		   
-//		   NSMutableDictionary *attrRange = @{ @"location"	: @(range.location),
-//											   @"length"		: @(range.length),
-//											   @"attributes"	: [NSJSONSerialization stringAttributesToDictionary:attrs]  }.mutableCopy;
-//		   
-//		   
-//		   [attributedRanges addObject:attrRange.copy];
-//	}];
-	
+
 	return [MTLValueTransformer reversibleTransformerWithForwardBlock:^(NSDictionary *data) {
-		
+
 		NSMutableAttributedString *attString = [[NSMutableAttributedString alloc] initWithString:data[@"string"]];
 		
 		for (NSDictionary *attRange in data[@"attributedRanges"]) {
-			NSDictionary *attributes = [self stringAttributesFromDictionary:attRange[@"attributes"]];
-			NSRange range = NSMakeRange([attRange[@"location"] unsignedIntegerValue], [attRange[@"length"] unsignedIntegerValue]);
 			
-			[attString addAttributes:attributes range:range];
+			NSDictionary *attributes = attRange[@"attributes"];
+			
+			if (attributes.count > 0) {
+				
+				attributes = [self stringAttributesFromDictionary:attributes];
+				NSRange range = NSMakeRange([attRange[@"location"] unsignedIntegerValue], [attRange[@"length"] unsignedIntegerValue]);
+				[attString addAttributes:attributes range:range];
+			}
 		}
 		
+//		NSAttributedString *attributedString = attString.copy;
         return attString.copy;
 		
     } reverseBlock:^(NSAttributedString *attributedString) {
-		
+		NSLog(@"reverse block called");
 		NSMutableArray *attributedRanges = [NSMutableArray array];
 		
 		[attributedString enumerateAttributesInRange:NSMakeRange(0, attributedString.length)
@@ -78,6 +74,8 @@
 				  @"attributedRanges": attributedRanges };
     }];
 }
+
+
 
 
 + (NSDictionary *)stringAttributesToDictionary:(NSDictionary *)dictionary
@@ -117,11 +115,14 @@
 {
 	NSMutableDictionary *attributes = [NSMutableDictionary dictionary];
 	
-	for (id key in dictionary) {
+	for (id _key in dictionary) {
+		id key = _key;
 		id val = dictionary[key];
 		//			NSString *type = val[@"type"];
 		
-		if ( [key isEqualToString:NSForegroundColorAttributeName] ) {
+		if ( [key isEqualToString:NSForegroundColorAttributeName] ||
+			 [key isEqualToString:@"color"] ) {
+			key = NSForegroundColorAttributeName;
 			val = [self colorFromDictionary:val];
 		}
 		
@@ -184,11 +185,13 @@
 + (NSColor *)colorFromDictionary:(NSDictionary *)dictionary
 {
 	NSDictionary *d = dictionary;
+	CGFloat a = d[@"a"] ? [d[@"a"] floatValue] : 1;
 
-	return [NSColor colorWithCalibratedRed:[d[@"r"] floatValue]
-									 green:[d[@"g"] floatValue]
-									  blue:[d[@"b"] floatValue]
-									 alpha:[d[@"a"] floatValue]];
+	NSColor *color = [NSColor colorWithCalibratedRed:[d[@"r"] floatValue]/255.0f
+											   green:[d[@"g"] floatValue]/255.0f
+												blue:[d[@"b"] floatValue]/255.0f
+											   alpha:a];
+	return color;
 }
 
 + (NSDictionary *)colorToDictionary:(NSColor *)color
